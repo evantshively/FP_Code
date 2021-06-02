@@ -1,0 +1,58 @@
+#Modules for using Pillow for image hashing
+import PIL
+from PIL import Image
+import imagehash
+
+#Modules for reading and extracting from directory 
+from os import listdir, getcwd
+from os.path import isfile, join, normpath, basename
+import hashlib
+
+#Modules for image reading and feature extraction
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+from skimage.io import imread, imshow
+
+#Definition to call files from directory
+def get_files(): 
+    current_path = normpath(getcwd())
+    return [join(current_path, f) for f in listdir(current_path) if isfile(join(current_path, f))]
+
+#function to get list of files with Hashes assigned
+def get_hashes():
+    files = get_files()
+    list_of_hashes = []
+    for each_file in files:
+        hash_md5 = hashlib.md5()
+        with open(each_file, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        list_of_hashes.append('Filename: {}\tHash: {}\n'.format(basename(each_file), hash_md5.hexdigest()))
+    return list_of_hashes
+
+#function to write hashes for each file in directory
+def write_hashes():
+    hashes = get_hashes()
+    with open('list_of_hashes.txt', 'w') as f:
+        for md5_hash in hashes:
+            f.write(md5_hash)
+
+    
+### Insert additional functions and feature extraction within this code
+# use files = get_files to move through all files in the directory
+'''def extract_features():
+    files = get_files()
+    list_of_features = []
+    for each_file in files:
+        ###Extraction code here '''
+
+if __name__ == '__main__':
+    write_hashes()
+
+get_hashes()
+
+#Unused code for imagehash using PIL
+#hash = imagehash.average_hash(Image.open('dog2.jpg'))
+#print(hash)
