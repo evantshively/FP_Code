@@ -1,0 +1,130 @@
+''' Code Source: https://blog.tattle.co.in/clustering-similar-images-with-phash/ '''
+
+# Import necessary libraries
+import imagehash
+import os
+import pandas as pd
+import numpy as np
+from PIL import Image
+from datetime import date, datetime, timedelta
+from time import perf_counter
+import wget
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+%matplotlib inline
+
+def get_hashes(path):
+    hashfunc = imagehash.phash
+    failed = []
+    total = 0
+    success = 0
+    image_filenames = []
+    image_filenames += [file for file in os.listdir(path)]
+    images = {}
+    for img in image_filenames:
+        if img.split(".")[-1] in ["jpg", "jpeg", "png"]:
+            try:
+                phash = hashfunc(Image.open(os.path.join(path, img)).convert("RGBA"))
+                images[img] = str(phash)
+                success +=1
+            except Exception:
+                failed.append(img)
+                continue
+            total +=1
+    print("phash generated for {} of {} images".format(success, total))
+    return images
+
+
+start = perf_counter()
+hashes = get_hashes(os.getcwd()+"/images")
+delta = perf_counter() - start
+print(delta)  
+
+
+df = pd.DataFrame.from_dict(hashes, orient="index", columns = ["phash"])
+df.reset_index(inplace=True)
+df.rename(columns={"index":"filename"}, inplace=True)
+df.head(3)
+
+def add_url(filename):
+    url = "https://s3.ap-south-1.amazonaws.com/sharechat-scraper.tattle.co.in/" + filename
+    return url
+
+df["img_urls"] = df["filename"].map(add_url)
+
+grouped = df.groupby(by="phash").agg({"filename":"size", "img_urls":list})
+grouped.rename(columns={'filename':'count'}, inplace=True)
+sorted = grouped.sort_values("count", ascending=False)
+sorted.reset_index(inplace=True)
+sorted.head(5)
+
+len(sorted)
+
+print("Number of clusters when minimum number of images is 2:", len(sorted[sorted["count"] >= 2]))
+print("Number of clusters when minimum number of images is 5:", len(sorted[sorted["count"] >= 5]))
+
+identical_clusters = sorted[sorted["count"] >= 2]
+identical_clusters.reset_index(inplace=True,drop = True)
+len(identical_clusters)
+
+# Find similar images
+query = "81d07fffe0611a85"
+matches = {}
+for i, row in sorted.iterrows():
+    # Convert hash hex string to original hash (binary array) 
+    diff = imagehash.hex_to_hash(query) - imagehash.hex_to_hash(row["phash"])
+    # phashes with Hamming distance less than 10 are likely to be similar images
+    
+    if diff <= 10:
+        print("Found match: ", row["phash"])
+        print("Hamming distance from query:", diff)
+        matches[row["phash"]] = row["img_urls"]
+        print("")
+ 
+ # Add the first image from each matched cluster to a list of images along with its local path
+images = []
+for i in matches.values():
+    img_path = "images/" + i[0].split("/")[-1]
+    images.append(img_path)
+
+# Load and display the images
+img_arrays = []
+for img in images:
+    img_arrays.append(mpimg.imread(img))
+
+plt.figure(figsize=(15,15))
+columns = 3
+for i, image in enumerate(img_arrays):
+    plt.subplot(len(images) / columns + 1, columns, i + 1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.imshow(image)
+
+# Modify Imagehash library func to return array instead of ImageHash obj
+
+def hex_to_hash(hexstr):
+	"""
+	Convert a stored hash (hex, as retrieved from str(Imagehash))
+	back to a Imagehash object.
+	Notes:
+	1. This algorithm assumes all hashes are either
+	   bidimensional arrays with dimensions hash_size * hash_size,
+	   or onedimensional arrays with dimensions binbits * 14.
+	2. This algorithm does not work for hash_size < 2.
+	"""
+	hash_size = int(np.sqrt(len(hexstr)*4))
+	#assert hash_size == numpy.sqrt(len(hexstr)*4)
+	binary_array = '{:0>{width}b}'.format(int(hexstr, 16), width = hash_size * hash_size)
+	bit_rows = [binary_array[i:i+hash_size] for i in range(0, len(binary_array), hash_size)]
+	hash_array = np.array([[bool(int(d)) for d in row] for row in bit_rows])
+	return hash_array
+xor = hex_to_hash("87d03e7ee0259e85") ^ hex_to_hash("81d07fffe0611a85")
+xor 
+
+# Count the number of 1s 
+np.count_nonzero(xor != 0)
+
+imagehash.hex_to_hash("87d03e7ee0259e85") - imagehash.hex_to_hash("81d07fffe0611a85")
+
+
+    
