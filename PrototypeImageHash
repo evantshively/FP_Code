@@ -1,0 +1,47 @@
+''' Code Source: https://blog.tattle.co.in/clustering-similar-images-with-phash/ '''
+
+# Import necessary libraries
+import imagehash #For generating hashes
+import os # For loading from local directory
+import pandas as pd #for Database creation 
+import numpy as np
+from PIL import Image #Main hashing/image analysis module Pillow
+from datetime import date, datetime, timedelta
+from time import perf_counter
+#import wget
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+%matplotlib inline
+
+def get_hashes(path): #Function for generating and storing hashes of images
+    hashfunc = imagehash.phash #pHash appears to be the better fit for our purposes
+    failed = []
+    total = 0
+    success = 0
+    image_filenames = []
+    image_filenames += [file for file in os.listdir(path)]
+    images = {}  #Blank directory for storing 
+    for img in image_filenames:
+        if img.split(".")[-1] in ["jpg", "jpeg", "png"]: #Looks for image file types 
+            try:
+                phash = hashfunc(Image.open(os.path.join(path, img)).convert("RGBA"))
+                images[img] = str(phash)
+                success +=1
+            except Exception: #For images that will not load/generate
+                failed.append(img)
+                continue
+            total +=1 #Counter tells how many image hashes are being generated
+    print("phash generated for {} of {} images".format(success, total))
+    return images
+
+#Code for calling the get hashes function and determining how long it will take
+start = perf_counter()
+hashes = get_hashes(os.getcwd()+"/images") #This is where we set the image directory
+delta = perf_counter() - start # Determines time it takes to generate and store phash
+print(delta) 
+
+#Code for loading our image hashes into a Pandas Dataframe for viewing 
+df = pd.DataFrame.from_dict(hashes, orient="index", columns = ["phash"]) #two columns filename and phash
+df.reset_index(inplace=True)
+df.rename(columns={"index":"filename"}, inplace=True)
+df.head(3) # Show first three 
