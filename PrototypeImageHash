@@ -12,36 +12,124 @@ from time import perf_counter
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 %matplotlib inline
+import sqlite3
+from sqlite3 import Error
 
-def get_hashes(path): #Function for generating and storing hashes of images
+def get_phashes(path): #Function for generating and storing hashes of images
     hashfunc = imagehash.phash #pHash appears to be the better fit for our purposes
     failed = []
     total = 0
     success = 0
     image_filenames = []
     image_filenames += [file for file in os.listdir(path)]
-    images = {}  #Blank directory for storing 
+    pimages = {}  #Blank directory for storing 
     for img in image_filenames:
         if img.split(".")[-1] in ["jpg", "jpeg", "png"]: #Looks for image file types 
             try:
                 phash = hashfunc(Image.open(os.path.join(path, img)).convert("RGBA"))
-                images[img] = str(phash)
+                pimages[img] = str(phash)
                 success +=1
             except Exception: #For images that will not load/generate
                 failed.append(img)
                 continue
             total +=1 #Counter tells how many image hashes are being generated
     print("phash generated for {} of {} images".format(success, total))
-    return images
+    return pimages
+    
+def get_dhashes(path): #Function for generating and storing hashes of images
+    hashfunc = imagehash.dhash #pHash appears to be the better fit for our purposes
+    failed = []
+    total = 0
+    success = 0
+    image_filenames = []
+    image_filenames += [file for file in os.listdir(path)]
+    dimages = {}  #Blank directory for storing 
+    for img in image_filenames:
+        if img.split(".")[-1] in ["jpg", "jpeg", "png"]: #Looks for image file types 
+            try:
+                dhash = hashfunc(Image.open(os.path.join(path, img)).convert("RGBA"))
+                dimages[img] = str(dhash)
+                success +=1
+            except Exception: #For images that will not load/generate
+                failed.append(img)
+                continue
+            total +=1 #Counter tells how many image hashes are being generated
+    print("dhash generated for {} of {} images".format(success, total))
+    return dimages
+    
+#Code for calling the get hashes function and determining how long it will take
+start = perf_counter()
+phashes = get_phashes(os.getcwd()+"/images") #This is where we set the image directory #getcwd get current working directory
+delta = perf_counter() - start # Determines time it takes to generate and store phash
+print("This generation took", delta , "seconds.") 
 
 #Code for calling the get hashes function and determining how long it will take
 start = perf_counter()
-hashes = get_hashes(os.getcwd()+"/images") #This is where we set the image directory
+dhashes = get_dhashes(os.getcwd()+"/images") #This is where we set the image directory
 delta = perf_counter() - start # Determines time it takes to generate and store phash
-print(delta) 
+print("This generation took", delta, "seconds.") 
 
 #Code for loading our image hashes into a Pandas Dataframe for viewing 
-df = pd.DataFrame.from_dict(hashes, orient="index", columns = ["phash"]) #two columns filename and phash
+hashdata = {'phash': phashes, 'dhash': dhashes}
+df = pd.DataFrame.from_dict(hashdata, orient="index") #two columns filename and phash
 df.reset_index(inplace=True)
-df.rename(columns={"index":"filename"}, inplace=True)
+df.rename(columns={"index":"hashtype"}, inplace=True)
 df.head(3) # Show first three 
+
+#What does the information look like?
+print(hashdata)
+print(phashes)
+print(dhashes)
+
+#SQLLITE DATABASE
+#Database connection in SQLITE3
+conn = sqlite3.connect("imageDB.db") #This database needs to be created seperately your SQL DBbrowser
+
+#creating cursor in DB
+cursor = conn.cursor()
+
+#create our table
+def create_table():
+    try:
+        cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Images (
+                Title TEXT NOT NULL,
+                PHashValue INTEGER NOT NULL,
+                DHashValue INTERGER NOT NULL 
+                );
+                """)
+    except Error as e:
+        print(e)
+        
+#Run and completion check
+create_table()
+print("Table Created.")
+
+#close cursor/connection
+conn.commit()
+conn.close() 
+
+#Next step enter information into our database
+
+#Reopen database and cursor
+conn = sqlite3.connect("imageDB.db")
+cursor = conn.cursor()
+
+#input Data:
+
+#Pulling data variables from created data
+#image_filenames = []
+#image_filenames += [file for file in os.getcwd()+"/images"]
+#phashes = hashes   
+
+#THIS IS WHERE I'M RUNNING INTO ISSUES! HOW DO I INPUT/FORMAT THE DATA FOR INPUTING INTO THE DATABASE
+def enterData():
+    cursor.execute("INSERT INTO Images3 VALUES (?, ?, ?)", 
+    conn.commit()
+
+enterData()
+data = cursor.fetchall() #This method retrives all data from the table
+print(data)
+
+conn.commit()
+conn.close()
