@@ -1,27 +1,32 @@
 ''' 
-Goal of Code:
-Load images from directory
-Assign Hash values (Phash and Dhash CAN ADD MORE LATER)
-Take hash values load into dataset hashdata
-Take hashdata and add to SQLLite database 
-Source used as code base: https://blog.tattle.co.in/clustering-similar-images-with-phash/ '''
+Image Database Prototype
+#Goal of Code: -Load images from directory (Later to be NITF Images) 
+-Draw Features from Images (Add code from Selvi) 
+-Assign Hash values to images (Phash and Dhash CAN ADD MORE LATER) 
+-Take data including hash values and image features store in directory/pandas dataframe 
+-Take stored data and import into SQL Database
+Source used as code base: https://blog.tattle.co.in/clustering-similar-images-with-phash/ 
+'''
 
-# Import necessary libraries
+#Import Necessary Libraries
 import imagehash #For generating hashes
 import os # For loading from local directory
 import pandas as pd #for Database creation 
-import numpy as np
+import numpy as np #numpy for data manipulation
 from PIL import Image #Main hashing/image analysis module Pillow
-from datetime import date, datetime, timedelta
-from time import perf_counter
+from datetime import date, datetime, timedelta #used for counter
+from time import perf_counter # used for counter
 #import wget
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 import matplotlib.image as mpimg
 %matplotlib inline
-import sqlite3
-from sqlite3 import Error
+import sqlite3 #for database image SQL
+from sqlite3 import Error # Error module to show if issues loading into SQL
 
-def get_phashes(path): #Function for generating and storing hashes of images
+#Load Images from directory and Assign Hash Values to images
+
+#Function for generating and storing phashes of images
+def get_phashes(path): #Function for generating and storing phashes of images
     hashfunc = imagehash.phash #pHash appears to be the better fit for our purposes
     failed = []
     total = 0
@@ -41,7 +46,8 @@ def get_phashes(path): #Function for generating and storing hashes of images
             total +=1 #Counter tells how many image hashes are being generated
     print("phash generated for {} of {} images".format(success, total))
     return pimages
-    
+
+#Function for generating and storing phashes of images
 def get_dhashes(path): #Function for generating and storing hashes of images
     hashfunc = imagehash.dhash #pHash appears to be the better fit for our purposes
     failed = []
@@ -62,7 +68,9 @@ def get_dhashes(path): #Function for generating and storing hashes of images
             total +=1 #Counter tells how many image hashes are being generated
     print("dhash generated for {} of {} images".format(success, total))
     return dimages
-    
+
+###Call created functions and store data
+
 #Code for calling the get phashes function and determining how long it will take
 start = perf_counter()
 phashes = get_phashes(os.getcwd()+"/images") #This is where we set the image directory #getcwd get current working directory
@@ -76,6 +84,7 @@ delta = perf_counter() - start # Determines time it takes to generate and store 
 print("This generation took", delta, "seconds.") 
 
 #What does the information look like?
+
 #Code for loading our image hashes into a Pandas Dataframe for viewing 
 hashdata = {'phash': phashes, 'dhash': dhashes}
 df = pd.DataFrame.from_dict(hashdata, orient="index") #two columns filename and phash
@@ -98,10 +107,12 @@ cursor = conn.cursor()
 def create_table():
     try:
         cursor.execute("""
-                CREATE TABLE IF NOT EXISTS ImageData (
-                Title TEXT NOT NULL,
-                PHashValue INTEGER NOT NULL,
-                DHashValue INTERGER NOT NULL 
+                CREATE TABLE IF NOT EXISTS SatImages (
+                UniqueID INT AUTO_INCREMENT,
+                ImageName TEXT,
+                phash INT,
+                dhash INT,
+                PRIMARY KEY(UniqueID) 
                 );
                 """)
     except Error as e:
@@ -129,7 +140,7 @@ cursor = conn.cursor()
 
 #THIS IS WHERE I'M RUNNING INTO ISSUES! HOW DO I INPUT/FORMAT THE DATA FOR INPUTING INTO THE DATABASE
 def enterData():
-    cursor.execute("INSERT INTO Images3 VALUES (?, ?, ?)", 
+    cursor.execute("INSERT INTO SatImages VALUES (?, ?, ?)", 
     conn.commit()
 
 enterData()
